@@ -1,0 +1,168 @@
+function SpeechRecognation(commandRef1,commandRef2,commandTarget)
+
+
+red=0;
+green=0;
+
+
+
+% prerecorded 2 commands
+[input1 ,fs1]=audioread(commandRef1);
+[input2 ,fs2]=audioread(commandRef2);
+% recordered target command
+[input3 ,fs3]=audioread(commandTarget);
+
+%%
+fprintf('prerecorded command one: Red\n');
+sound(input1, fs1);
+pause(1);
+fprintf('prerecorded command two: Green\n');
+sound(input2, fs2);
+pause(1);
+fprintf('Traget command\n');
+sound(input3, fs3);
+%%
+
+% block the dc power component as it consider to be useless
+input1=input1-mean(input1);
+input2=input2-mean(input2);
+input3=input3-mean(input3);
+
+% now we get the spectrom information in frequency domain
+nfft = min(1023,length(input1)); %%%legnth of the STFT
+% define window length and the overlap to decide the window step
+
+s1=specgram(input1, nfft, fs1, hanning(511),380);
+s2=specgram(input2, nfft, fs2, hanning(511),380);
+s3=specgram(input3, nfft, fs3, hanning(511),380);
+
+%%%% FREQUENCY SPECTRUM %%%%%%%%%%%%%%%%
+
+%%%%take abs make it real and ease to plot
+absolute1=transpose(abs(s1)); 
+absolute2=transpose(abs(s2));
+absolute3=transpose(abs(s3));
+
+ %%%% get time-freuqency related spectrum
+a1=sum(absolute1);
+a2=sum(absolute2);
+a3=sum(absolute3);
+
+%%%%[ Normalization Stage ] in this stage we decrease the noise effect
+a1_norm=(a1-min(a1))/(max(a1)-min(a1));
+a2_norm=(a2-min(a2))/(max(a2)-min(a2));
+a3_norm=(a3-min(a3))/(max(a3)-min(a3));
+
+%transpose row to colume vector
+% F for frequency
+
+F1=transpose(a1_norm); 
+F2=transpose(a2_norm);
+F3=transpose(a3_norm);
+
+%%%FREQUENCY SPECTRUM :compare crosscorrelation
+
+[x1,lag1]=xcorr(F3,F1);
+[mx1,indice1]=max(x1);
+frequency_red_shift=lag1(indice1);
+
+[x2,lag2]=xcorr(F3,F2);
+[mx2,indice2]=max(x2);
+frequency_green_shift=lag2(indice2);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%% frequency domain spectrum plot
+
+
+figure(1)
+% 2x3 matrix ploting ,first row ploting the original spectrum
+% second row ploting summated real spectrum
+
+subplot(2,3,1)
+plot(abs(s1))
+subplot (2,3,2)
+plot(abs(s2))
+subplot (2,3,3)
+plot(abs(s3))
+subplot(2,3,4)
+plot(F1);
+subplot(2,3,5)
+plot(F2);
+subplot(2,3,6)
+plot(F3);
+figure(2)
+subplot(1,2,1)
+plot(x1)
+title('the xcorr of for red summation');
+subplot(1,2,2 )
+plot(x2)
+title('the xcorr of for green summation');
+
+
+% judging 
+if indice1<length(x1)/2
+    q=1:(indice1-1);
+    p=indice1+length(q):-1:indice1+1;
+    length(p);
+    length(q);
+    x1_left=x1(q);
+    min(x1_left);
+    x1_right=x1(p);
+    min( x1_right);
+    error1= mean((abs(x1_right-x1_left)).^2);
+else
+    q=1+frequency_red_shift*2:indice1-1;
+    p=length(x1):-1:indice1+1;
+    length(q);
+    length(p);
+    x1_left=x1(q);
+    x1_right=x1(p);
+    error1= mean((abs(x1_right-x1_left)).^2);
+end
+
+
+if indice2<length(x2)/2
+    q2=1:indice2-1;
+    p2=indice2+length(q2):-1:indice2+1;
+    x2_left=x2(q2);
+    length(q2);
+    length(p2);
+    min(x2_left);
+    x2_right=x2(p2);
+    min( x2_right);
+    error2= mean((abs(x2_right-x2_left)).^2);
+else
+    q2=1+frequency_green_shift*2:indice2-1;
+    p2=length(x2):-1:indice2+1;
+    length(q2);
+    length(p2);
+    x2_left=x2(q2);
+    x2_right=x2(p2);
+    error2= mean((abs(x2_right-x2_left)).^2);
+end
+
+
+if error1>error2
+green=green+1;
+test=0;
+elseif error1==error2
+    red=0;
+    green=0;
+else   
+red=red+1;
+test=1;
+end
+
+
+% Output
+
+if red>green
+disp('answer is red')
+elseif red==green
+    disp('donno what u have said');
+    
+    else
+    disp('answer is green')
+ end
+
+    
+end
